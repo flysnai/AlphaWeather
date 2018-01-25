@@ -16,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
         if (!NetUtil.getNetworkState(this)) {//测试
             Toast.makeText(MainActivity.this, "请连接网络,更新最新天气信息", Toast.LENGTH_SHORT);
         } else {
-            Toast.makeText(MainActivity.this, "网络正常", Toast.LENGTH_SHORT);
+            Toast.makeText(MainActivity.this, "网络正常！", Toast.LENGTH_SHORT);
         }
     }
 }
