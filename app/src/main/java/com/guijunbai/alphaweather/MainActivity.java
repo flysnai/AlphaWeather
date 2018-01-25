@@ -1,5 +1,6 @@
 package com.guijunbai.alphaweather;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -23,10 +24,11 @@ import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private ImageView updateBtn,weatherStateImg,pmStateImg;
     private TextView cityT,timeT,humidityT,pmDataT,pmQualityT,temperatureT,climateT,windT;
     private TodayWeather todayWeather;
+    private ImageView selectCtiyImg;
     void initView()
     {
         //title
@@ -76,17 +78,42 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "网络正常！", Toast.LENGTH_SHORT).show();
         }
-        updateBtn = (ImageView) findViewById(R.id.title_update);
-        updateBtn.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        getWeatherDataFromNet("101010100");
-                    }
-                }
-        );
-        initView();
 
+        //数据更新
+        updateBtn = (ImageView) findViewById(R.id.title_update);
+        updateBtn.setOnClickListener(this);
+
+        //城市选择
+        selectCtiyImg = (ImageView) findViewById(R.id.title_city);
+        selectCtiyImg.setOnClickListener(this);
+        initView();
+    }
+
+    @Override
+    public void onClick(View v) {
+        String cityCode = "";
+        if (v.getId() == R.id.title_update) {
+            getWeatherDataFromNet("101010100");
+        }
+        if (v.getId() == R.id.title_city) {
+            Intent intent = new Intent(this, SelectCityActivity.class);
+            startActivityForResult(intent, 1);
+            onActivityResult(RESULT_OK, 1, intent);
+        }
+    }
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 1 && resultCode == RESULT_OK) {
+            String newCityCode= data.getStringExtra("cityCode");
+            Log.d("myWeather", "选择的城市代码为" + newCityCode);
+            if (!NetUtil.getNetworkState(this)) {//测试
+                Toast.makeText(this, "请连接网络,更新最新天气信息", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "网络正常！", Toast.LENGTH_SHORT).show();
+                getWeatherDataFromNet(newCityCode);
+            }
+
+        }
     }
 
     /**
