@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         temperatureT.setText("N/A");
         climateT.setText("N/A");
         windT.setText("N/A");
+        getWeatherDataFromNet("101010100");//初始化的时候为北京
     }
 
     private Handler mHandler = new Handler() {
