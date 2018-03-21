@@ -1,10 +1,16 @@
 package com.guijunbai.app;
 
 import android.app.Application;
+import android.app.Service;
 import android.os.Environment;
+import android.os.Vibrator;
 import android.util.Log;
+
+import com.baidu.mapapi.SDKInitializer;
 import com.guijunbai.bean.City;
 import com.guijunbai.db.CityDB;
+import com.guijunbai.location.LocationService;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -20,7 +26,8 @@ public class MyApplication extends Application {
     private static final String TAG = "MyApp";
     private static MyApplication myApplication;
     private CityDB mCityDB;
-
+    public LocationService locationService;
+    public Vibrator mVibrator;
     @Override
     public void onCreate() {
         super.onCreate();
@@ -31,6 +38,12 @@ public class MyApplication extends Application {
         for (City city:citys) {
             Log.d("city:", city.getProvince() + "-" + city.getCity());
         }
+        /***
+         * 初始化定位sdk，建议在Application中创建
+         */
+        locationService = new LocationService(getApplicationContext());
+        mVibrator =(Vibrator)getApplicationContext().getSystemService(Service.VIBRATOR_SERVICE);
+        SDKInitializer.initialize(getApplicationContext());
     }
 
     public static MyApplication getInstance() {

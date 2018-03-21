@@ -11,7 +11,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.baidu.location.BDAbstractLocationListener;
+import com.baidu.location.BDLocation;
+import com.baidu.location.Poi;
+import com.guijunbai.app.MyApplication;
+import com.guijunbai.bean.City;
 import com.guijunbai.bean.TodayWeather;
+import com.guijunbai.location.LocationService;
 import com.guijunbai.util.NetUtil;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -23,6 +29,11 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
+
+import pl.droidsonroids.gif.GifImageView;
+
+import static com.guijunbai.alphaweather.R.layout.main;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private ImageView updateBtn,weatherStateImg,pmStateImg;
@@ -33,6 +44,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TodayWeather todayWeather;
     private ImageView selectCtiyImg;
     private String updateCityCode;
+    private LocationService locationService;
+    private String locate;
+    private List<City> cities;
+    private ImageView locateImg;
+    private ImageView shareImg;
+    private GifImageView mainBackGroundImg;
     void initView()
     {
         //today weather
@@ -61,7 +78,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         temperatureT3 = (TextView) findViewById(R.id.temperatureT3);
         climateT3 = (TextView) findViewById(R.id.climateT3);
         windT3 = (TextView) findViewById(R.id.windT3);
-
         /*
         cityT.setText("N/A");
         timeT.setText("N/A");
@@ -88,7 +104,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         climateT3.setText("N/A");
         windT3.setText("N/A");
         */
-        getWeatherDataFromNet("101010100");
+        //百度SDK获取当前所在城市
+        locationService = ((MyApplication) getApplication()).locationService;
+        //获取locationservice实例，建议应用中只初始化1个location实例，然后使用，可以参考其他示例的activity，都是通过此种方式获取locationservice实例的
+        locationService.registerListener(mListener);
+        //注册监听
+        locationService.setLocationOption(locationService.getDefaultLocationClientOption());
+        locationService.start();
     }
 
     private Handler mHandler = new Handler() {
@@ -105,7 +127,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
+        setContentView(main);
         if (!NetUtil.getNetworkState(this)) {//测试
             Toast.makeText(this, "请连接网络,更新最新天气信息", Toast.LENGTH_SHORT).show();
         } else {
@@ -119,25 +141,51 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //城市选择
         selectCtiyImg = (ImageView) findViewById(R.id.title_city);
         selectCtiyImg.setOnClickListener(this);
+
+        //定位当前城市
+        locateImg = (ImageView) findViewById(R.id.title_locate);
+        locateImg.setOnClickListener(this);
+
+        //分享
+        shareImg = (ImageView) findViewById(R.id.title_share);
+        shareImg.setOnClickListener(this);
         initView();
+
+        mainBackGroundImg = (GifImageView) findViewById(R.id.background_main);
+        mainBackGroundImg.setVisibility(View.INVISIBLE);
         updateCityCode = getIntent().getStringExtra("cityCode");
         if (!"".equals(updateCityCode) && updateCityCode != null) {
             Log.d("@@@@@@@@@@@@@@@@@", updateCityCode);
             getWeatherDataFromNet(updateCityCode);
+            locationService.unregisterListener(mListener);
         }
     }
 
     @Override
     public void onClick(View v) {
-        if (v.getId() == R.id.title_update) {
-            getWeatherDataFromNet("101010100");
-        }
         if (v.getId() == R.id.title_city) {
             Intent intent = new Intent(this, SelectCityActivity.class);
             //第一个参数：一个Intent对象，用于携带将跳转至下一个界面中使用的数据，使用putExtra(A,B)方法，此处存储的数据类型特别多，基本类型全部支持。
             //第二个参数：如果> = 0,当Activity结束时requestCode将归还在onActivityResult()中。以便确定返回的数据是从哪个Activity中返回，用来标识目标activity。
             startActivityForResult(intent, 1);
             onActivityResult(RESULT_OK, 1, intent);
+        }
+        if (v.getId() == R.id.title_update || v.getId() == R.id.title_locate) {
+            //百度SDK获取当前所在城市
+            locationService = ((MyApplication) getApplication()).locationService;
+            //获取locationservice实例，建议应用中只初始化1个location实例，然后使用，可以参考其他示例的activity，都是通过此种方式获取locationservice实例的
+            locationService.registerListener(mListener);
+            //注册监听
+            locationService.setLocationOption(locationService.getDefaultLocationClientOption());
+            locationService.start();
+        }
+        if (v.getId() == R.id.title_share) {
+            Intent intent = new Intent();
+            intent.setAction(Intent.ACTION_SEND);
+            intent.putExtra(Intent.EXTRA_TEXT, "This is my text to send.");
+            // 指定发送内容的类型
+            intent.setType("text/plain");
+            startActivity(Intent.createChooser(intent, "share to"));
         }
     }
 
@@ -418,33 +466,43 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         if (todayWeather.getType() != null) {
             Log.d("type", todayWeather.getType());
+            mainBackGroundImg.setVisibility(View.VISIBLE);
             switch (todayWeather.getType()) {
                 case "晴":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_qing);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.sunny);
                     break;
                 case "阴":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_yin);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.overcast);
                     break;
                 case "雾":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_wu);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.foggy);
                     break;
                 case "多云":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_duoyun);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.cloudy);
                     break;
                 case "小雨":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_xiaoyu);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.lightrain);
                     break;
                 case "中雨":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_zhongyu);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.rain);
                     break;
                 case "大雨":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_dayu);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.heavyrain);
                     break;
                 case "阵雨":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_zhenyu);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.showerrain);
                     break;
                 case "雷阵雨":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_leizhenyu);
+                    mainBackGroundImg.setBackgroundResource(R.drawable.showerrain);
                     break;
                 case "雷阵雨加暴":
                     weatherStateImg.setImageResource(R.drawable.biz_plugin_weather_leizhenyubingbao);
@@ -485,4 +543,117 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         Toast.makeText(MainActivity.this, "更新成功", Toast.LENGTH_SHORT).show();
     }
+
+    /*****
+     *
+     * 定位结果回调，重写onReceiveLocation方法，可以直接拷贝如下代码到自己工程中修改
+     *
+     */
+    private BDAbstractLocationListener mListener = new BDAbstractLocationListener() {
+
+        @Override
+        public void onReceiveLocation(BDLocation location) {
+            // TODO Auto-generated method stub
+            if (null != location && location.getLocType() != BDLocation.TypeServerError) {
+                StringBuffer sb = new StringBuffer(256);
+                sb.append("time : ");
+                /**
+                 * 时间也可以使用systemClock.elapsedRealtime()方法 获取的是自从开机以来，每次回调的时间；
+                 * location.getTime() 是指服务端出本次结果的时间，如果位置不发生变化，则时间不变
+                 */
+                sb.append(location.getTime());
+                sb.append("\nlocType : ");// 定位类型
+                sb.append(location.getLocType());
+                sb.append("\nlocType description : ");// *****对应的定位类型说明*****
+                sb.append(location.getLocTypeDescription());
+                sb.append("\nlatitude : ");// 纬度
+                sb.append(location.getLatitude());
+                sb.append("\nlontitude : ");// 经度
+                sb.append(location.getLongitude());
+                sb.append("\nradius : ");// 半径
+                sb.append(location.getRadius());
+                sb.append("\nCountryCode : ");// 国家码
+                sb.append(location.getCountryCode());
+                sb.append("\nCountry : ");// 国家名称
+                sb.append(location.getCountry());
+                sb.append("\ncitycode : ");// 城市编码
+                sb.append(location.getCityCode());
+                sb.append("\ncity : ");// 城市
+                sb.append(location.getCity());
+                sb.append("\nDistrict : ");// 区
+                sb.append(location.getDistrict());
+                sb.append("\nStreet : ");// 街道
+                sb.append(location.getStreet());
+                sb.append("\naddr : ");// 地址信息
+                sb.append(location.getAddrStr());
+                sb.append("\nUserIndoorState: ");// *****返回用户室内外判断结果*****
+                sb.append(location.getUserIndoorState());
+                sb.append("\nDirection(not all devices have value): ");
+                sb.append(location.getDirection());// 方向
+                sb.append("\nlocationdescribe: ");
+                sb.append(location.getLocationDescribe());// 位置语义化信息
+                sb.append("\nPoi: ");// POI信息
+                if (location.getPoiList() != null && !location.getPoiList().isEmpty()) {
+                    for (int i = 0; i < location.getPoiList().size(); i++) {
+                        Poi poi = (Poi) location.getPoiList().get(i);
+                        sb.append(poi.getName() + ";");
+                    }
+                }
+                if (location.getLocType() == BDLocation.TypeGpsLocation) {// GPS定位结果
+                    sb.append("\nspeed : ");
+                    sb.append(location.getSpeed());// 速度 单位：km/h
+                    sb.append("\nsatellite : ");
+                    sb.append(location.getSatelliteNumber());// 卫星数目
+                    sb.append("\nheight : ");
+                    sb.append(location.getAltitude());// 海拔高度 单位：米
+                    sb.append("\ngps status : ");
+                    sb.append(location.getGpsAccuracyStatus());// *****gps质量判断*****
+                    sb.append("\ndescribe : ");
+                    sb.append("gps定位成功");
+                } else if (location.getLocType() == BDLocation.TypeNetWorkLocation) {// 网络定位结果
+                    // 运营商信息
+                    if (location.hasAltitude()) {// *****如果有海拔高度*****
+                        sb.append("\nheight : ");
+                        sb.append(location.getAltitude());// 单位：米
+                    }
+                    sb.append("\noperationers : ");// 运营商信息
+                    sb.append(location.getOperators());
+                    sb.append("\ndescribe : ");
+                    sb.append("网络定位成功");
+                } else if (location.getLocType() == BDLocation.TypeOffLineLocation) {// 离线定位结果
+                    sb.append("\ndescribe : ");
+                    sb.append("离线定位成功，离线定位结果也是有效的");
+                } else if (location.getLocType() == BDLocation.TypeServerError) {
+                    sb.append("\ndescribe : ");
+                    sb.append("服务端网络定位失败，可以反馈IMEI号和大体定位时间到loc-bugs@baidu.com，会有人追查原因");
+                } else if (location.getLocType() == BDLocation.TypeNetWorkException) {
+                    sb.append("\ndescribe : ");
+                    sb.append("网络不同导致定位失败，请检查网络是否通畅");
+                } else if (location.getLocType() == BDLocation.TypeCriteriaException) {
+                    sb.append("\ndescribe : ");
+                    sb.append("无法获取有效定位依据导致定位失败，一般是由于手机的原因，处于飞行模式下一般会造成这种结果，可以试着重启手机");
+                }
+                Log.d("@@@@@@@", sb.toString());
+                locate = location.getCity();
+                Log.d("location.getCity()", locate);
+                if (locate != null && !"".equals(locate)) {
+                    Log.d("locate:", locate);
+                    locationService.unregisterListener(mListener);
+                    locationService.stop();
+                    cities = ((MyApplication) getApplication()).getAllCity();
+                    for (City city : cities) {
+                        if (locate.indexOf(city.getCity()) > -1) {
+                            Log.d("还没更新", "大爷的");
+                            getWeatherDataFromNet(city.getNumber());
+                            break;
+                        }
+                    }
+                } else {
+                    Log.d("百度说:", "大爷我还没开始定位");
+                }
+            }
+        }
+
+    };
+
 }

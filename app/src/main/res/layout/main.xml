@@ -54,6 +54,12 @@
         android:layout_width="match_parent"
         android:layout_below="@id/title_relative"
         android:background="@drawable/main_background">
+        <pl.droidsonroids.gif.GifImageView
+            android:id="@+id/background_main"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/lightrain"
+            />
         <RelativeLayout
             android:id="@+id/todayinfo1_relative"
             android:layout_width="wrap_content"
